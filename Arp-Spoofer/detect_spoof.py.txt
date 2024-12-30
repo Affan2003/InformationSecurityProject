@@ -1,0 +1,11 @@
+from scapy.all import ARP, sniff
+
+def detect_spoof(packet):
+    if ARP in packet and packet[ARP].op == 2:  # ARP Reply
+        real_mac = "00:50:56:e2:be:50"  # Real MAC of Gateway
+        if packet[ARP].hwsrc != real_mac:
+            print(f"[ALERT] Spoofed packet detected! IP: {packet[ARP].psrc} - MAC: {packet[ARP].hwsrc}")
+
+# Start sniffing ARP packets
+print("[INFO] Starting ARP spoof detection...")
+sniff(filter="arp", prn=detect_spoof, store=False)
